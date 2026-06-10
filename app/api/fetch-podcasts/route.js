@@ -1,14 +1,22 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY;
-const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET;
+// Server-side safe env targets with hardcoded direct fallbacks
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "NTZUEYPGNW634N8EYDX4";
+const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || "98CywEP8U4UP3yBKcPePEDPBmx6ngNayBywMLrMz";
 
 function buildHeaders() {
   const ts = Math.floor(Date.now() / 1000);
+  
+  // Guard check to protect crypto compiler
+  if (!API_KEY || !API_SECRET) {
+    throw new Error("API configuration strings are empty or corrupted.");
+  }
+
   const hash = crypto.createHash("sha1")
     .update(API_KEY + API_SECRET + ts)
     .digest("hex");
+
   return {
     "X-Auth-Date": String(ts),
     "X-Auth-Key": API_KEY,
@@ -71,15 +79,17 @@ export async function POST(request) {
       includeRecent = true 
     } = body;
 
-    const maxPerPage = 40; // Kept lower for faster UI response
+    const maxPerPage = 40; 
     let searchFeeds = [];
     let recentFeedsList = [];
 
     // 1. Fetch Keyword Search
-    for (let p = 0; p < totalPages; p++) {
-      const batch = await searchPodcasts(query, p, maxPerPage);
-      searchFeeds.push(...batch);
-      if (batch.length < maxPerPage) break;
+    if (query && query.trim()) {
+      for (let p = 0; p < totalPages; p++) {
+        const batch = await searchPodcasts(query.trim(), p, maxPerPage);
+        searchFeeds.push(...batch);
+        if (batch.length < maxPerPage) break;
+      }
     }
     const processedSearch = filterAndExtract(searchFeeds, activeDays, minEpisodes);
 
